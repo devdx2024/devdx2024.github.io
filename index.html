@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="pt-BR">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -10,31 +10,181 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;400;700&display=swap" rel="stylesheet" />
     <style>
+      :root {
+        --terminal-green: #22c55e;
+        --terminal-bg: #000000;
+      }
       body {
         font-family: 'JetBrains Mono', monospace;
-        background-color: #000000;
+        background-color: var(--terminal-bg);
+        color: var(--terminal-green);
+        overflow: hidden;
         cursor: default;
       }
-      /* Hide scrollbar */
-      ::-webkit-scrollbar {
-        width: 0px;
-        background: transparent;
+
+      /* Scanline Effect */
+      .scanlines {
+        background: linear-gradient(
+          to bottom,
+          rgba(255,255,255,0),
+          rgba(255,255,255,0) 50%,
+          rgba(0,0,0,0.2) 50%,
+          rgba(0,0,0,0.2)
+        );
+        background-size: 100% 4px;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        pointer-events: none;
+        z-index: 50;
+        opacity: 0.6;
+      }
+
+      /* CRT Flicker */
+      @keyframes flicker {
+        0% { opacity: 0.97; }
+        5% { opacity: 0.95; }
+        10% { opacity: 0.9; }
+        15% { opacity: 0.95; }
+        20% { opacity: 0.99; }
+        100% { opacity: 0.97; }
+      }
+      .crt-flicker {
+        animation: flicker 0.15s infinite;
+      }
+
+      /* Background Grid Animation */
+      .bg-grid {
+        background-image: 
+          linear-gradient(to right, #111 1px, transparent 1px),
+          linear-gradient(to bottom, #111 1px, transparent 1px);
+        background-size: 40px 40px;
+        mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, #000 70%, transparent 100%);
+        position: absolute;
+        inset: 0;
+        z-index: -10;
+      }
+
+      /* Typewriter Cursor */
+      .cursor-blink {
+        animation: blink 1s step-end infinite;
+      }
+      @keyframes blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+      }
+
+      /* Utility classes for terminal look */
+      .terminal-box {
+        background: rgba(0, 0, 0, 0.7);
+        border: 1px solid rgba(34, 197, 94, 0.3);
+        box-shadow: 0 0 10px rgba(34, 197, 94, 0.1);
+        backdrop-filter: blur(4px);
+      }
+      
+      .text-glow {
+        text-shadow: 0 0 5px rgba(34, 197, 94, 0.5);
       }
     </style>
-  <script type="importmap">
+    <script type="importmap">
 {
   "imports": {
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
     "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0"
+    "react/": "https://aistudiocdn.com/react@^19.2.0/"
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
+  <link rel="stylesheet" href="/index.css">
 </head>
-  <body class="bg-black text-green-500 overflow-hidden selection:bg-green-900 selection:text-white">
-    <div id="root"></div>
-  <script type="module" src="/index.tsx"></script>
-</body>
+  <body class="crt-flicker">
+    <!-- Visual Effects -->
+    <div class="scanlines"></div>
+    <div class="fixed inset-0 bg-[radial-gradient(circle_at_center,transparent_50%,rgba(0,0,0,0.8)_100%)] z-40 pointer-events-none"></div>
+    <div class="bg-grid"></div>
+
+    <!-- Decorative Hex Data -->
+    <div class="absolute top-8 right-8 text-[10px] text-green-900/60 hidden lg:block select-none z-0">
+       0xEF 0xBB 0xBF 0x53<br/>
+       0x59 0x53 0x54 0x45<br/>
+       KERNEL_PANIC: 0
+    </div>
+
+    <!-- Main Layout -->
+    <main class="relative z-30 min-h-screen p-6 md:p-12 flex flex-col justify-center items-center">
+      <div class="w-full max-w-7xl h-[85vh] grid grid-cols-1 lg:grid-cols-12 gap-8">
+        
+        <!-- Left Column: Clock & Weather -->
+        <div class="lg:col-span-7 flex flex-col justify-between h-full">
+            <!-- Clock -->
+            <div id="clock-container" class="pt-8 pl-4 border-l-2 border-green-900/50">
+                <div class="text-sm text-green-700 font-bold tracking-widest mb-2">root@embu-node:~$ date</div>
+                <div id="clock-time" class="text-[6rem] sm:text-[9rem] md:text-[11rem] leading-none font-bold tracking-tighter text-green-500 text-glow">
+                   --:--<span class="cursor-blink">_</span>
+                </div>
+                <div id="clock-date" class="text-xl md:text-2xl uppercase tracking-[0.2em] text-green-800 pl-2 border-l-4 border-green-800 ml-2 mt-2">
+                   LOADING_DATE...
+                </div>
+            </div>
+
+            <!-- Weather -->
+            <div id="weather-container" class="mb-8 max-w-md">
+                <div class="bg-green-900/20 border-t border-x border-green-800/50 p-1 flex justify-between items-center rounded-t-sm">
+                    <span class="text-[10px] text-green-600 pl-2">ENV_MONITOR.EXE</span>
+                    <div class="flex gap-1 pr-1">
+                        <div class="w-2 h-2 rounded-full bg-green-800"></div>
+                        <div class="w-2 h-2 rounded-full bg-green-800"></div>
+                    </div>
+                </div>
+                <div class="terminal-box flex items-center space-x-6 p-6 rounded-b-sm relative overflow-hidden">
+                    <div id="weather-icon" class="flex-shrink-0 opacity-90 w-12 h-12">
+                        <!-- Icon injected by JS -->
+                        <div class="animate-pulse w-12 h-12 bg-green-900/30 rounded-full"></div>
+                    </div>
+                    <div class="flex flex-col z-10">
+                        <div class="text-5xl font-bold text-green-400 flex items-start tracking-tighter text-glow">
+                            <span id="weather-temp">--</span>
+                            <span class="text-sm mt-1 ml-1 text-green-700">°C</span>
+                        </div>
+                        <div class="flex flex-col mt-2 border-l border-green-900 pl-3">
+                            <span id="weather-condition" class="text-lg text-green-200 uppercase tracking-widest text-[0.8rem]">INITIALIZING...</span>
+                            <span class="text-xs text-green-600 flex items-center gap-2 mt-1">
+                                <span class="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></span>
+                                PRECIP_PROB: <span id="weather-rain">--</span>
+                            </span>
+                            <span class="text-[10px] text-green-800 mt-1 uppercase">LOC: EMBU DAS ARTES</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: News -->
+        <div class="lg:col-span-5 flex flex-col justify-end pb-8">
+            <div id="news-container" class="w-full">
+                <div class="bg-black border border-green-800/60 p-1 rounded-sm shadow-[0_0_20px_rgba(0,255,0,0.1)]">
+                    <div class="bg-green-900/10 px-2 py-1 flex items-center gap-2 mb-2 border-b border-green-900/30">
+                        <div class="w-2 h-2 rounded-full bg-red-900"></div>
+                        <div class="w-2 h-2 rounded-full bg-yellow-900"></div>
+                        <div class="w-2 h-2 rounded-full bg-green-900"></div>
+                        <span class="ml-2 text-[10px] text-green-700 uppercase tracking-widest">/var/log/tech_news.txt</span>
+                    </div>
+                    <div class="p-4 min-h-[160px] flex flex-col justify-between relative">
+                        <div class="text-green-500 text-lg md:text-xl leading-relaxed font-mono">
+                            <span class="text-green-800 mr-2">></span>
+                            <span id="news-headline">AWAITING_UPLINK...</span>
+                            <span class="inline-block w-2.5 h-5 bg-green-500 ml-1 animate-pulse align-middle"></span>
+                        </div>
+                        <div class="mt-4 flex justify-between items-end border-t border-green-900/30 pt-2">
+                            <span id="news-source" class="text-xs text-green-800 font-bold uppercase">SRC: SYSTEM</span>
+                            <span id="news-index" class="text-[10px] text-green-900">PACKET 0/0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+      </div>
+    </main>
+    <script type="module" src="/index.tsx"></script>
+  </body>
 </html>
