@@ -1,36 +1,40 @@
-import { fetchWeatherForEmbu, fetchTechNews } from './services/geminiService';
+import { fetchWeatherForEmbu } from './services/geminiService';
 import { SVGIcons } from './components/Icons';
-import { WeatherData, NewsItem } from './types';
+
+// --- Types ---
+interface DOMState {
+  time: HTMLElement | null;
+  date: HTMLElement | null;
+  weatherContainer: HTMLElement | null;
+  weatherTemp: HTMLElement | null;
+  weatherCond: HTMLElement | null;
+  weatherRain: HTMLElement | null;
+  weatherIcon: HTMLElement | null;
+}
 
 // --- State ---
-let newsData: NewsItem[] = [];
-let currentNewsIndex = 0;
-let typingInterval: any = null;
-let slideTimeout: any = null;
-
-// --- DOM Elements ---
-const dom = {
-  time: document.getElementById('clock-time')!,
-  date: document.getElementById('clock-date')!,
-  weatherTemp: document.getElementById('weather-temp')!,
-  weatherCond: document.getElementById('weather-condition')!,
-  weatherRain: document.getElementById('weather-rain')!,
-  weatherIcon: document.getElementById('weather-icon')!,
-  newsHeadline: document.getElementById('news-headline')!,
-  newsSource: document.getElementById('news-source')!,
-  newsIndex: document.getElementById('news-index')!,
+let dom: DOMState = {
+  time: null,
+  date: null,
+  weatherContainer: null,
+  weatherTemp: null,
+  weatherCond: null,
+  weatherRain: null,
+  weatherIcon: null
 };
 
 // --- Clock Logic ---
 function updateClock() {
+  if (!dom.time || !dom.date) return;
+  
   const now = new Date();
   
   // Time HH:MM
   const timeStr = now.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
-  // We keep the blinker span in the HTML, so we only update the text node
-  if (dom.time.firstChild) {
-      dom.time.firstChild.textContent = timeStr;
-  }
+  
+  // Custom cursor logic
+  const cursorHtml = `<span class="cursor-blink text-green-500">_</span>`;
+  dom.time.innerHTML = `${timeStr}${cursorHtml}`;
 
   // Date
   const dateStr = now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' });
@@ -39,84 +43,67 @@ function updateClock() {
 
 // --- Weather Logic ---
 async function updateWeather() {
+  if (!dom.weatherTemp) return;
+
   try {
       const data = await fetchWeatherForEmbu();
       if (!data) return;
 
-      dom.weatherTemp.textContent = data.temp;
-      dom.weatherCond.textContent = data.condition;
-      dom.weatherRain.textContent = data.rainChance;
+      if (dom.weatherTemp) dom.weatherTemp.textContent = data.temp;
+      if (dom.weatherCond) dom.weatherCond.textContent = data.condition;
+      if (dom.weatherRain) dom.weatherRain.textContent = data.rainChance;
 
       // Icon Selection
-      const c = data.condition.toLowerCase();
-      let iconHtml = SVGIcons.Cloud;
-      if (c.includes('chuva') || c.includes('rain')) iconHtml = SVGIcons.Rain;
-      else if (c.includes('sol') || c.includes('claro') || c.includes('limpo')) iconHtml = SVGIcons.Sun;
+      if (dom.weatherIcon) {
+        const c = data.condition.toLowerCase();
+        let iconHtml = SVGIcons.Cloud;
+        if (c.includes('chuva') || c.includes('rain') || c.includes('tempestade')) iconHtml = SVGIcons.Rain;
+        else if (c.includes('sol') || c.includes('claro') || c.includes('limpo')) iconHtml = SVGIcons.Sun;
+        
+        dom.weatherIcon.innerHTML = iconHtml;
+      }
       
-      dom.weatherIcon.innerHTML = iconHtml;
+      // Fade in animation
+      if (dom.weatherContainer) {
+        dom.weatherContainer.style.opacity = '1';
+      }
 
   } catch (e) {
       console.error("Weather Update Failed", e);
   }
 }
 
-// --- News Logic ---
-async function updateNewsData() {
-    const news = await fetchTechNews();
-    if (news && news.length > 0) {
-        newsData = news;
-        currentNewsIndex = 0;
-        displayNewsItem();
-    }
-}
-
-function displayNewsItem() {
-    if (newsData.length === 0) return;
-    
-    // Clear previous
-    if (typingInterval) clearInterval(typingInterval);
-    if (slideTimeout) clearTimeout(slideTimeout);
-
-    const item = newsData[currentNewsIndex];
-    dom.newsSource.textContent = `SRC: ${item.source}`;
-    dom.newsIndex.textContent = `PACKET ${currentNewsIndex + 1}/${newsData.length}`;
-    
-    // Typewriter Effect
-    dom.newsHeadline.textContent = "";
-    const text = item.headline;
-    let charIndex = 0;
-
-    typingInterval = setInterval(() => {
-        if (charIndex < text.length) {
-            dom.newsHeadline.textContent += text.charAt(charIndex);
-            charIndex++;
-        } else {
-            clearInterval(typingInterval);
-            // Schedule next slide
-            slideTimeout = setTimeout(() => {
-                currentNewsIndex = (currentNewsIndex + 1) % newsData.length;
-                displayNewsItem();
-            }, 8000);
-        }
-    }, 40); // Typing speed
-}
-
-// --- Init ---
+// --- Initialization ---
 function init() {
-    // Start Clock
-    setInterval(updateClock, 1000);
+    console.log("System initializing...");
+
+    // 1. Grab DOM Elements safely
+    dom = {
+      time: document.getElementById('clock-time'),
+      date: document.getElementById('clock-date'),
+      weatherContainer: document.getElementById('weather-container'),
+      weatherTemp: document.getElementById('weather-temp'),
+      weatherCond: document.getElementById('weather-condition'),
+      weatherRain: document.getElementById('weather-rain'),
+      weatherIcon: document.getElementById('weather-icon'),
+    };
+
+    // Check if critical elements exist
+    if (!dom.time) {
+        console.error("Critical Error: Clock element not found.");
+        return;
+    }
+
+    // 2. Start Clock immediately
     updateClock();
+    setInterval(updateClock, 1000);
 
-    // Initial Fetch
+    // 3. Start Weather
     updateWeather();
-    updateNewsData();
-
-    // Polling
     setInterval(updateWeather, 30 * 60 * 1000); // 30 mins
-    setInterval(updateNewsData, 60 * 60 * 1000); // 60 mins
 }
 
-// Ensure DOM is ready
+// Ensure DOM is ready before running init
 if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
 } else {

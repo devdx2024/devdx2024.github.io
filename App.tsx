@@ -1,7 +1,6 @@
 import React from 'react';
 import Clock from './components/Clock';
 import WeatherWidget from './components/WeatherWidget';
-import NewsTicker from './components/NewsTicker';
 
 const App: React.FC = () => {
   return (
@@ -39,7 +38,7 @@ const App: React.FC = () => {
 
             {/* Right Column: News and System Status */}
             <div className="lg:col-span-5 flex flex-col justify-end h-full relative">
-                <NewsTicker />
+                
             </div>
         </div>
     </main>

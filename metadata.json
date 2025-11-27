@@ -1,5 +1,5 @@
 {
-  "name": "EmbuFlow Ambient",
+  "name": "Copy of EmbuFlow Ambient",
   "description": "A beautiful, installable ambient dashboard featuring time, real-time weather for Embu das Artes, and tech news.",
   "requestFramePermissions": [
     "geolocation"
