@@ -87,18 +87,18 @@
     </style>
 
   <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-    <script>
-        window.OneSignalDeferred = window.OneSignalDeferred || [];
-        OneSignalDeferred.push(async function (OneSignal) {
-            await OneSignal.init({
-                appId: "2c5b94d3-fcc6-4a0f-8145-0253c01f6362",
-                safari_web_id: "web.onesignal.auto.0be2159b-fe04-48af-91ed-a963117d84ac",
-                notifyButton: {
-                    enable: true,
-                },
-            });
-        });
-    </script>
+<script>
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function(OneSignal) {
+    await OneSignal.init({
+      appId: "2c5b94d3-fcc6-4a0f-8145-0253c01f6362",
+      safari_web_id: "web.onesignal.auto.0be2159b-fe04-48af-91ed-a963117d84ac",
+      notifyButton: {
+        enable: true,
+      },
+    });
+  });
+</script>
   <link rel="stylesheet" href="/index.css">
 </head>
 
