@@ -1,106 +1,138 @@
+
 <!DOCTYPE html>
 <html lang="pt-BR">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>EmbuFlow Terminal</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="manifest" href="/manifest.json" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@100;400;700&display=swap" rel="stylesheet" />
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Telegram Mini App</title>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
     <style>
-      :root {
-        --terminal-primary: #00ff41; /* Classic Matrix Green */
-        --terminal-dim: #008F11;
-        --terminal-bg: #0d1117;
-      }
-      body {
-        font-family: 'JetBrains Mono', monospace;
-        background-color: #000;
-        color: var(--terminal-primary);
-        overflow: hidden;
-        cursor: default;
-      }
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+        }
 
-      /* Scanline Effect */
-      .scanlines {
-        background: linear-gradient(
-          to bottom,
-          rgba(255,255,255,0),
-          rgba(255,255,255,0) 50%,
-          rgba(0,0,0,0.2) 50%,
-          rgba(0,0,0,0.2)
-        );
-        background-size: 100% 4px;
-        position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        pointer-events: none;
-        z-index: 50;
-        opacity: 0.6;
-      }
+        .card {
+            border: 1px solid #ccc;
+            border-radius: 10px;
+            padding: 15px;
+            margin-bottom: 15px;
+        }
 
-      /* CRT Flicker */
-      @keyframes flicker {
-        0% { opacity: 0.97; }
-        5% { opacity: 0.95; }
-        10% { opacity: 0.9; }
-        15% { opacity: 0.95; }
-        20% { opacity: 0.99; }
-        100% { opacity: 0.97; }
-      }
-      .crt-flicker {
-        animation: flicker 0.15s infinite;
-      }
+        h2 {
+            margin-top: 0;
+        }
 
-      /* Background Grid */
-      .bg-grid {
-        background-image: 
-          linear-gradient(to right, #111 1px, transparent 1px),
-          linear-gradient(to bottom, #111 1px, transparent 1px);
-        background-size: 40px 40px;
-        mask-image: radial-gradient(circle at center, #000 0%, transparent 80%);
-        position: absolute;
-        inset: 0;
-        z-index: -10;
-      }
+        pre {
+            white-space: pre-wrap;
+            word-break: break-word;
+        }
 
-      /* Typewriter Cursor */
-      .cursor-blink {
-        animation: blink 1s step-end infinite;
-      }
-      @keyframes blink {
-        0%, 100% { opacity: 1; }
-        50% { opacity: 0; }
-      }
+        button {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            cursor: pointer;
+        }
 
-      .text-glow {
-        text-shadow: 0 0 10px rgba(0, 255, 65, 0.6);
-      }
-      
-      .terminal-box {
-        background: rgba(0, 10, 0, 0.8);
-        border: 1px solid rgba(0, 255, 65, 0.3);
-        box-shadow: 0 0 15px rgba(0, 255, 65, 0.1);
-        backdrop-filter: blur(4px);
-      }
+        #status {
+            margin-top: 10px;
+        }
     </style>
-
-  <script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
-<script>
-  window.OneSignalDeferred = window.OneSignalDeferred || [];
-  OneSignalDeferred.push(async function(OneSignal) {
-    await OneSignal.init({
-      appId: "2c5b94d3-fcc6-4a0f-8145-0253c01f6362",
-      safari_web_id: "web.onesignal.auto.0be2159b-fe04-48af-91ed-a963117d84ac",
-      notifyButton: {
-        enable: true,
-      },
-    });
-  });
-</script>
-  <link rel="stylesheet" href="/index.css">
 </head>
+<body>
 
-  </body>
+    <h2>Telegram Mini App</h2>
+
+    <div class="card">
+        <strong>Usuário:</strong>
+        <pre id="user">Carregando...</pre>
+    </div>
+
+    <div class="card">
+        <strong>Tema:</strong>
+        <pre id="theme">Carregando...</pre>
+    </div>
+
+    <button onclick="enviarDados()">
+        Enviar Dados para o Bot
+    </button>
+
+    <div id="status"></div>
+
+    <script>
+        let tg = null;
+        let user = {};
+
+        try {
+
+            if (!window.Telegram || !window.Telegram.WebApp) {
+                document.getElementById('status').innerHTML =
+                    '⚠️ Esta página não foi aberta pelo Telegram Web App.';
+                throw new Error('Telegram WebApp não encontrado');
+            }
+
+            tg = window.Telegram.WebApp;
+
+            tg.ready();
+            tg.expand();
+
+            user = tg.initDataUnsafe?.user || {};
+
+            document.getElementById('user').textContent =
+                JSON.stringify(user, null, 2);
+
+            document.getElementById('theme').textContent =
+                JSON.stringify(tg.themeParams, null, 2);
+
+            document.getElementById('status').innerHTML =
+                '✅ Web App conectado ao Telegram';
+
+            tg.MainButton.setText('Enviar Dados');
+            tg.MainButton.show();
+
+            tg.MainButton.onClick(() => {
+                enviarDados();
+            });
+
+        } catch (e) {
+
+            console.error(e);
+
+            document.getElementById('status').innerHTML =
+                '❌ Erro: ' + e.message;
+        }
+
+        function enviarDados() {
+
+            if (!tg) {
+                alert('Telegram Web App não disponível');
+                return;
+            }
+
+            const payload = {
+                acao: 'teste',
+                timestamp: Date.now(),
+                usuario: {
+                    id: user.id || null,
+                    username: user.username || '',
+                    nome: user.first_name || ''
+                }
+            };
+
+            console.log('Enviando:', payload);
+
+            tg.sendData(JSON.stringify(payload));
+
+            document.getElementById('status').innerHTML =
+                '📤 Dados enviados para o bot';
+        }
+    </script>
+
+</body>
 </html>
