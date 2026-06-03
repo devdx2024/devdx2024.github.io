@@ -72,19 +72,19 @@
 
        
 
-            if (!window.Telegram || !window.Telegram.WebApp) {
+          
+         try {
+  if (!window.Telegram || !window.Telegram.WebApp) {
                 document.getElementById('status').innerHTML =
                     '⚠️ Esta página não foi aberta pelo Telegram Web App.';
                 throw new Error('Telegram WebApp não encontrado');
             }
-         try {
-
             tg = window.Telegram.WebApp;
 
             tg.ready();
             tg.expand();
 
-            user = tg.initDataUnsafe  || {};// tg.initDataUnsafe?.user || {};
+            user =  tg.initDataUnsafe?.user || {};
 
             document.getElementById('user').textContent =
                 JSON.stringify(user, null, 2);
