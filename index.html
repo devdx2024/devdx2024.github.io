@@ -135,7 +135,12 @@
             tg.sendData(JSON.stringify(payload));
 
             document.getElementById('status').innerHTML =
-                '📤 Dados enviados para o bot';
+                '📤 Dados enviados para o bot'+
+                JSON.stringify({
+                tel: Telegram.WebApp.platform, 
+                tel2: Telegram.WebApp.version,
+                tel3: Telegram.WebApp.initDataUnsafe});
+    
         }
     </script>
 
