@@ -83,7 +83,7 @@
             tg.ready();
             tg.expand();
 
-            user = tg.initDataUnsafe?.user || {};
+            user = tg.initDataUnsafe  || {};// tg.initDataUnsafe?.user || {};
 
             document.getElementById('user').textContent =
                 JSON.stringify(user, null, 2);
