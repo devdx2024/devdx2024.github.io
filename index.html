@@ -68,7 +68,8 @@
     <script>
         let tg = null;
         let user = {};
-alert(window.Telegram?.WebApp?.initData);
+Telegram.WebApp.sendData('teste');
+
         try {
 
             if (!window.Telegram || !window.Telegram.WebApp) {
