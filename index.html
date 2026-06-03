@@ -86,6 +86,9 @@
 
             document.getElementById('user').textContent =
                 JSON.stringify(user, null, 2);
+            if (user.photo_url) {
+    document.getElementById("ima").src = user.photo_url;
+}
          
             document.getElementById('theme').textContent =
                 JSON.stringify(tg.themeParams, null, 2);
