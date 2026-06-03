@@ -70,13 +70,14 @@
         let user = {};
 
 
-        try {
+       
 
             if (!window.Telegram || !window.Telegram.WebApp) {
                 document.getElementById('status').innerHTML =
                     '⚠️ Esta página não foi aberta pelo Telegram Web App.';
                 throw new Error('Telegram WebApp não encontrado');
             }
+         try {
 
             tg = window.Telegram.WebApp;
 
