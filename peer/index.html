@@ -1,2 +1,621 @@
-<meta name="robots" content="noindex, nofollow">
-<h1>Hello World</h1>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <meta name="robots" content="noindex, nofollow">
+
+    <title>Enviar Foto</title>
+
+    <!-- PeerJS -->
+    <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+
+    <!-- QR Code Scanner -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+
+    <style>
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            padding: 20px;
+            background: #111;
+            color: #fff;
+            font-family: Arial, sans-serif;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            margin: auto;
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        #reader {
+            width: 100%;
+            max-width: 500px;
+            margin: auto;
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+        }
+
+        #camera {
+            display: none;
+            width: 100%;
+            border-radius: 15px;
+            background: #000;
+        }
+
+        #preview {
+            display: none;
+            width: 100%;
+            margin-top: 15px;
+            border-radius: 15px;
+        }
+
+        .status {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            background: #222;
+            text-align: center;
+        }
+
+        .status.connected {
+            background: #164d25;
+        }
+
+        .status.error {
+            background: #5c1d1d;
+        }
+
+        button {
+            width: 100%;
+            padding: 16px;
+            margin-top: 15px;
+            border: 0;
+            border-radius: 10px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        #btnFoto {
+            background: #2196f3;
+            color: white;
+        }
+
+        #btnFoto:disabled {
+            background: #444;
+            color: #888;
+            cursor: not-allowed;
+        }
+
+        #btnNovaConexao {
+            background: #333;
+            color: white;
+        }
+
+        .info {
+            text-align: center;
+            margin-top: 10px;
+            color: #aaa;
+            font-size: 14px;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<div class="container">
+
+    <h1>Enviar Foto</h1>
+
+    <!-- Scanner -->
+    <div id="reader"></div>
+
+    <!-- Câmera -->
+    <video id="camera"
+           autoplay
+           playsinline></video>
+
+    <!-- Preview -->
+    <img id="preview">
+
+    <!-- Status -->
+    <div id="status" class="status">
+        Aponte a câmera para o QR Code
+    </div>
+
+    <div class="info" id="peerInfo">
+        Aguardando conexão...
+    </div>
+
+    <!-- Botão foto -->
+    <button id="btnFoto" disabled>
+        📷 Tirar Foto
+    </button>
+
+    <button id="btnNovaConexao">
+        🔄 Nova Conexão
+    </button>
+
+</div>
+
+
+<canvas id="canvas" style="display:none;"></canvas>
+
+
+<script>
+
+    let peer = null;
+    let connection = null;
+
+    let cameraStream = null;
+
+    let scanner = null;
+
+    const reader = document.getElementById("reader");
+    const camera = document.getElementById("camera");
+    const canvas = document.getElementById("canvas");
+    const preview = document.getElementById("preview");
+
+    const btnFoto = document.getElementById("btnFoto");
+    const btnNovaConexao = document.getElementById("btnNovaConexao");
+
+    const status = document.getElementById("status");
+    const peerInfo = document.getElementById("peerInfo");
+
+
+    /*
+     * ----------------------------------------------------
+     * STATUS
+     * ----------------------------------------------------
+     */
+
+    function setStatus(text, type = "") {
+
+        status.textContent = text;
+
+        status.className = "status";
+
+        if (type) {
+            status.classList.add(type);
+        }
+    }
+
+
+    /*
+     * ----------------------------------------------------
+     * INICIAR SCANNER
+     * ----------------------------------------------------
+     */
+
+    async function iniciarScanner() {
+
+        reader.style.display = "block";
+
+        scanner = new Html5Qrcode("reader");
+
+        try {
+
+            await scanner.start(
+                {
+                    facingMode: "environment"
+                },
+
+                {
+                    fps: 10,
+                    qrbox: {
+                        width: 250,
+                        height: 250
+                    }
+                },
+
+                async (qrCodeMessage) => {
+
+                    console.log("QR Code:", qrCodeMessage);
+
+                    await pararScanner();
+
+                    conectarPeer(qrCodeMessage);
+                },
+
+                (errorMessage) => {
+                    // Ignora erros normais de leitura
+                }
+            );
+
+        } catch (error) {
+
+            console.error(error);
+
+            setStatus(
+                "Não foi possível acessar a câmera.",
+                "error"
+            );
+        }
+    }
+
+
+    /*
+     * ----------------------------------------------------
+     * PARAR SCANNER
+     * ----------------------------------------------------
+     */
+
+    async function pararScanner() {
+
+        if (scanner) {
+
+            try {
+                await scanner.stop();
+            } catch (e) {
+                console.log(e);
+            }
+
+            scanner.clear();
+            scanner = null;
+        }
+
+        reader.style.display = "none";
+    }
+
+
+    /*
+     * ----------------------------------------------------
+     * CONECTAR AO PEERJS
+     * ----------------------------------------------------
+     */
+
+    function conectarPeer(peerId) {
+
+        setStatus(
+            "Conectando...",
+            ""
+        );
+
+        peerInfo.textContent =
+            "Peer: " + peerId;
+
+
+        /*
+         * Cria um PeerJS local
+         */
+        peer = new Peer();
+
+
+        peer.on("open", (meuId) => {
+
+            console.log("Meu Peer ID:", meuId);
+
+            /*
+             * Conecta no Peer encontrado no QR Code
+             */
+            connection = peer.connect(peerId, {
+                reliable: true
+            });
+
+
+            connection.on("open", async () => {
+
+                console.log("Conectado!");
+
+                setStatus(
+                    "✓ Conectado com sucesso!",
+                    "connected"
+                );
+
+                btnFoto.disabled = false;
+
+                await iniciarCamera();
+
+            });
+
+
+            connection.on("data", (data) => {
+
+                console.log(
+                    "Mensagem recebida:",
+                    data
+                );
+
+            });
+
+
+            connection.on("close", () => {
+
+                setStatus(
+                    "Conexão encerrada.",
+                    "error"
+                );
+
+                btnFoto.disabled = true;
+
+            });
+
+
+            connection.on("error", (error) => {
+
+                console.error(error);
+
+                setStatus(
+                    "Erro na conexão.",
+                    "error"
+                );
+
+            });
+
+        });
+
+
+        peer.on("error", (error) => {
+
+            console.error("PeerJS:", error);
+
+            setStatus(
+                "Erro PeerJS: " + error.type,
+                "error"
+            );
+
+            btnFoto.disabled = true;
+        });
+    }
+
+
+    /*
+     * ----------------------------------------------------
+     * INICIAR CÂMERA
+     * ----------------------------------------------------
+     */
+
+    async function iniciarCamera() {
+
+        try {
+
+            cameraStream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: "environment",
+                    width: {
+                        ideal: 1920
+                    },
+                    height: {
+                        ideal: 1080
+                    }
+                },
+                audio: false
+            });
+
+            camera.srcObject = cameraStream;
+
+            camera.style.display = "block";
+
+        } catch (error) {
+
+            console.error(error);
+
+            setStatus(
+                "Não foi possível abrir a câmera.",
+                "error"
+            );
+        }
+    }
+
+
+    /*
+     * ----------------------------------------------------
+     * TIRAR FOTO
+     * ----------------------------------------------------
+     */
+
+    btnFoto.addEventListener("click", () => {
+
+        if (!cameraStream) {
+            return;
+        }
+
+        if (!connection || !connection.open) {
+
+            setStatus(
+                "Não existe conexão com o Peer.",
+                "error"
+            );
+
+            return;
+        }
+
+
+        /*
+         * Dimensão da foto
+         *
+         * Limitamos para 1280px para não mandar
+         * uma imagem gigantesca pelo WebRTC.
+         */
+
+        const larguraMaxima = 1280;
+
+        let width = camera.videoWidth;
+        let height = camera.videoHeight;
+
+
+        if (width > larguraMaxima) {
+
+            const proporcao =
+                larguraMaxima / width;
+
+            width = larguraMaxima;
+            height = Math.round(
+                height * proporcao
+            );
+        }
+
+
+        canvas.width = width;
+        canvas.height = height;
+
+
+        const ctx = canvas.getContext("2d");
+
+        ctx.drawImage(
+            camera,
+            0,
+            0,
+            width,
+            height
+        );
+
+
+        /*
+         * Converte para Base64
+         *
+         * 0.8 = qualidade JPEG
+         */
+
+        const base64 = canvas.toDataURL(
+            "image/jpeg",
+            0.80
+        );
+
+
+        /*
+         * Mostra preview
+         */
+
+        preview.src = base64;
+        preview.style.display = "block";
+
+
+        /*
+         * Envia para o PeerJS
+         */
+
+        const mensagem = {
+
+            type: "photo",
+
+            mime: "image/jpeg",
+
+            data: base64,
+
+            timestamp: Date.now()
+
+        };
+
+
+        try {
+
+            connection.send(mensagem);
+
+            setStatus(
+                "✓ Foto enviada!",
+                "connected"
+            );
+
+            console.log(
+                "Foto enviada:",
+                Math.round(base64.length / 1024),
+                "KB"
+            );
+
+        } catch (error) {
+
+            console.error(error);
+
+            setStatus(
+                "Erro ao enviar a foto.",
+                "error"
+            );
+        }
+
+    });
+
+
+    /*
+     * ----------------------------------------------------
+     * NOVA CONEXÃO
+     * ----------------------------------------------------
+     */
+
+    btnNovaConexao.addEventListener(
+        "click",
+        async () => {
+
+            btnFoto.disabled = true;
+
+            preview.style.display = "none";
+
+            /*
+             * Para câmera
+             */
+            if (cameraStream) {
+
+                cameraStream
+                    .getTracks()
+                    .forEach(track => track.stop());
+
+                cameraStream = null;
+            }
+
+            /*
+             * Fecha conexão
+             */
+            if (connection) {
+
+                try {
+                    connection.close();
+                } catch (e) {}
+
+                connection = null;
+            }
+
+            /*
+             * Fecha Peer
+             */
+            if (peer) {
+
+                try {
+                    peer.destroy();
+                } catch (e) {}
+
+                peer = null;
+            }
+
+            camera.style.display = "none";
+
+            peerInfo.textContent =
+                "Aguardando conexão...";
+
+            setStatus(
+                "Aponte a câmera para o QR Code"
+            );
+
+            await iniciarScanner();
+
+        }
+    );
+
+
+    /*
+     * ----------------------------------------------------
+     * INICIALIZA
+     * ----------------------------------------------------
+     */
+
+    iniciarScanner();
+
+</script>
+
+</body>
+</html>
