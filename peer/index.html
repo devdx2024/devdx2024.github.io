@@ -516,7 +516,7 @@
 
         try {
 
-            connection.send(mensagem.data);
+            connection.send("image:" + mensagem.data);
 
             setStatus(
                 "✓ Foto enviada!",
