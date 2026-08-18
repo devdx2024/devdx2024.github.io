@@ -516,7 +516,7 @@
 
         try {
 
-            connection.send("image:" + mensagem.data);
+            connection.send("image:" + (mensagem.data.replace("image:data:image/jpeg;base64,", "")));
 
             setStatus(
                 "✓ Foto enviada!",
