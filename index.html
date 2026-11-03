@@ -1,148 +1,40 @@
-
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Telegram Mini App</title>
-
-    <script src="https://telegram.org/js/telegram-web-app.js"></script>
-
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background: var(--tg-theme-bg-color, #ffffff);
-            color: var(--tg-theme-text-color, #000000);
-        }
-
-        .card {
-            border: 1px solid #ccc;
-            border-radius: 10px;
-            padding: 15px;
-            margin-bottom: 15px;
-        }
-
-        h2 {
-            margin-top: 0;
-        }
-
-        pre {
-            white-space: pre-wrap;
-            word-break: break-word;
-        }
-
-        button {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            cursor: pointer;
-        }
-
-        #status {
-            margin-top: 10px;
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#155e75">
+  <meta name="description" content="Exemplo de aplicativo web que funciona offline.">
+  <link rel="manifest" href="./manifest.json">
+  <link rel="icon" href="./icons/icon-192.png">
+  <link rel="stylesheet" href="./style.css">
+  <title>Notas Offline</title>
 </head>
 <body>
+  <main class="app">
+    <header>
+      <div class="eyebrow">EXEMPLO DE PWA</div>
+      <h1>Notas Offline</h1>
+      <p>Suas anotações ficam salvas neste dispositivo.</p>
+      <div id="status" class="status">Verificando conexão…</div>
+    </header>
 
-    <h2>Telegram Mini App</h2>
-    <img src="#" id="ima" width="100" height="100" />
-    <div class="card">
-        <strong>Usuário:</strong>
-        <pre id="user">Carregando...</pre>
-    </div>
+    <form id="note-form">
+      <label for="note">Nova anotação</label>
+      <textarea id="note" rows="3" maxlength="3000" placeholder="Escreva algo…" required></textarea>
+      <button type="submit">Salvar anotação</button>
+    </form>
 
-    <div class="card">
-        <strong>Tema:</strong>
-        <pre id="theme">Carregando...</pre>
-    </div>
-
-    <button onclick="enviarDados()">
-        Enviar Dados para o Bot
-    </button>
-
-    <div id="status"></div>
-
-    <script>
-        let tg = null;
-        let user = {};
-
-
-       
-
-          
-         try {
-  if (!window.Telegram || !window.Telegram.WebApp) {
-                document.getElementById('status').innerHTML =
-                    '⚠️ Esta página não foi aberta pelo Telegram Web App.';
-                throw new Error('Telegram WebApp não encontrado');
-            }
-            tg = window.Telegram.WebApp;
-
-            tg.ready();
-            tg.expand();
-
-            user =  tg.initDataUnsafe?.user || {};
-
-            document.getElementById('user').textContent =
-                JSON.stringify(user, null, 2);
-            if (user.photo_url) {
-    document.getElementById("ima").src = user.photo_url;
-}
-         
-            document.getElementById('theme').textContent =
-                JSON.stringify(tg.themeParams, null, 2);
-
-            document.getElementById('status').innerHTML =
-                '✅ Web App conectado ao Telegram';
-
-            tg.MainButton.setText('Enviar Dados');
-            tg.MainButton.show();
-
-            tg.MainButton.onClick(() => {
-                enviarDados();
-            });
-
-        } catch (e) {
-
-            console.error(e);
-
-            document.getElementById('status').innerHTML =
-                '❌ Erro: ' + e.message;
-        }
-
-        function enviarDados() {
-
-            if (!tg) {
-                alert('Telegram Web App não disponível');
-                return;
-            }
-
-            const payload = {
-                acao: 'teste',
-                timestamp: Date.now(),
-                usuario: {
-                    id: user.id || null,
-                    username: user.username || '',
-                    nome: user.first_name || ''
-                }
-            };
-
-            console.log('Enviando:', payload);
-
-            tg.sendData(JSON.stringify(payload));
-
-            document.getElementById('status').innerHTML =
-                '📤 Dados enviados para o bot'+
-                JSON.stringify({
-                tel: Telegram.WebApp.platform, 
-                tel2: Telegram.WebApp.version,
-                tel3: Telegram.WebApp.initDataUnsafe});
-    
-        }
-    </script>
-
+    <section aria-labelledby="list-title">
+      <div class="list-heading">
+        <h2 id="list-title">Anotações</h2>
+        <span id="count">0 itens</span>
+      </div>
+      <p id="empty" class="empty">Nenhuma anotação ainda. Crie a primeira acima.</p>
+      <ul id="notes" class="notes"></ul>
+    </section>
+    <footer>Demo local • Não envia seus dados para um servidor</footer>
+  </main>
+  <script src="./app.js"></script>
 </body>
 </html>

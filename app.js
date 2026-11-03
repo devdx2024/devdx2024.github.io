@@ -1,110 +1,104 @@
-// Configuração
-const TARGET_URL = 'https://192.168.0.14';
-const REDIRECT_DELAY_MS = 3500;
-const UPDATE_INTERVAL_MS = 16; // ~60fps
+const DB_NAME = "notas-offline-db";
+const DB_VERSION = 1;
+const STORE = "notes";
+const form = document.querySelector("#note-form");
+const input = document.querySelector("#note");
+const list = document.querySelector("#notes");
+const empty = document.querySelector("#empty");
+const count = document.querySelector("#count");
+const statusEl = document.querySelector("#status");
 
-// Estado
-let progress = 0;
-let isRedirecting = true;
-let isCancelled = false;
-let deferredPrompt = null;
-let intervalId = null;
+function updateStatus() {
+  statusEl.textContent = navigator.onLine
+    ? "● Online — os dados continuam locais"
+    : "● Offline — aplicativo funcionando";
+}
+addEventListener("online", updateStatus);
+addEventListener("offline", updateStatus);
+updateStatus();
 
-// Elementos DOM
-const elTitle = document.getElementById('status-title');
-const elDesc = document.getElementById('status-desc');
-const elProgressBar = document.getElementById('progress-bar');
-const elBtnCancel = document.getElementById('btn-cancel-auto');
-const elMsgCancelled = document.getElementById('msg-cancelled');
-const elBtnAccess = document.getElementById('btn-access');
-const elBtnInstall = document.getElementById('btn-install');
-
-// Registrar Service Worker (Necessário para PWA)
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/sw.js')
-      .then(reg => console.log('SW registrado', reg))
-      .catch(err => console.error('Erro SW', err));
+function openDB() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(STORE)) {
+        db.createObjectStore(STORE, { keyPath: "id", autoIncrement: true });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
   });
 }
 
-// Lógica de Redirecionamento
-function performRedirect() {
-  window.location.href = TARGET_URL;
+async function withStore(mode, action) {
+  const db = await openDB();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(STORE, mode);
+    const store = tx.objectStore(STORE);
+    let request;
+    try { request = action(store); }
+    catch (error) { reject(error); db.close(); return; }
+    tx.oncomplete = () => { resolve(request?.result); db.close(); };
+    tx.onerror = () => { reject(tx.error); db.close(); };
+    tx.onabort = () => { reject(tx.error || new Error("Operação cancelada")); db.close(); };
+  });
 }
 
-function updateUI() {
-  elProgressBar.style.width = `${progress}%`;
-  
-  if (isCancelled) {
-    elTitle.textContent = 'Redirecionamento Pausado';
-    elDesc.textContent = 'Aguardando ação do usuário';
-    elProgressBar.classList.replace('bg-cyan-500', 'bg-amber-500');
-    elBtnCancel.classList.add('hidden');
-    elMsgCancelled.classList.remove('hidden');
-  } else {
-    elTitle.textContent = 'Conectando ao Servidor';
-    elDesc.textContent = `Abrindo ${TARGET_URL}...`;
+async function renderNotes() {
+  const all = await withStore("readonly", store => store.getAll());
+  all.sort((a,b) => b.createdAt - a.createdAt);
+  list.replaceChildren();
+  empty.hidden = all.length !== 0;
+  count.textContent = `${all.length} ${all.length === 1 ? "item" : "itens"}`;
+
+  for (const note of all) {
+    const li = document.createElement("li");
+    li.className = "note-item";
+    const date = document.createElement("div");
+    date.className = "note-date";
+    date.textContent = new Date(note.createdAt).toLocaleString("pt-BR");
+    const body = document.createElement("div");
+    body.className = "note-body";
+    body.textContent = note.text;
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "delete";
+    del.textContent = "Excluir";
+    del.addEventListener("click", async () => {
+      if (!confirm("Excluir esta anotação?")) return;
+      await withStore("readwrite", store => store.delete(note.id));
+      await renderNotes();
+    });
+    li.append(date, body, del);
+    list.append(li);
   }
 }
 
-function startTimer() {
-  const startTime = Date.now();
-  const endTime = startTime + REDIRECT_DELAY_MS;
+form.addEventListener("submit", async event => {
+  event.preventDefault();
+  const text = input.value.trim();
+  if (!text) return;
+  try {
+    await withStore("readwrite", store =>
+      store.add({ text, createdAt: Date.now() })
+    );
+    input.value = "";
+    await renderNotes();
+    input.focus();
+  } catch (error) {
+    alert("Não foi possível salvar localmente: " + error.message);
+  }
+});
 
-  intervalId = setInterval(() => {
-    if (!isRedirecting) return;
+renderNotes().catch(error => {
+  console.error(error);
+  alert("Não foi possível abrir o armazenamento local deste navegador.");
+});
 
-    const now = Date.now();
-    const remaining = Math.max(0, endTime - now);
-    const elapsed = REDIRECT_DELAY_MS - remaining;
-    progress = Math.min(100, (elapsed / REDIRECT_DELAY_MS) * 100);
-
-    updateUI();
-
-    if (now >= endTime) {
-      clearInterval(intervalId);
-      performRedirect();
-    }
-  }, UPDATE_INTERVAL_MS);
+if ("serviceWorker" in navigator) {
+  addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js")
+      .catch(error => console.error("Falha ao registrar Service Worker:", error));
+  });
 }
-
-function cancelRedirect() {
-  isCancelled = true;
-  isRedirecting = false;
-  progress = 100;
-  if (intervalId) clearInterval(intervalId);
-  updateUI();
-}
-
-// Event Listeners
-elBtnCancel.addEventListener('click', cancelRedirect);
-
-elBtnAccess.addEventListener('click', () => {
-  performRedirect();
-});
-
-// PWA Install Logic
-window.addEventListener('beforeinstallprompt', (e) => {
-  // Previne o prompt automático do Chrome (em mobile antigos)
-  e.preventDefault();
-  deferredPrompt = e;
-  
-  // Mostra o botão
-  elBtnInstall.classList.remove('hidden');
-});
-
-elBtnInstall.addEventListener('click', async () => {
-  if (!deferredPrompt) return;
-  
-  deferredPrompt.prompt();
-  
-  const { outcome } = await deferredPrompt.userChoice;
-  console.log(`User response to the install prompt: ${outcome}`);
-  
-  deferredPrompt = null;
-  elBtnInstall.classList.add('hidden');
-});
-
-// Iniciar
-startTimer();
