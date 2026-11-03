@@ -1,10 +1,1 @@
-{
-  "name": "offcpbbb",
-  "short_name": "offcpbbb",
-  "start_url": "/offcpbbb/",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#42b883",
-  "lang": "pt-BR",
-  "scope": "/offcpbbb/"
-}
+{"name":"offcpbbb","short_name":"offcpbbb","start_url":"/cpbbb/","display":"standalone","background_color":"#ffffff","theme_color":"#42b883","lang":"en","scope":"/cpbbb/"}
